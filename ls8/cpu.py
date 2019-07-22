@@ -9,6 +9,7 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256
         self.pc = 0
+        self.registers = {}
         pass
 
     def load(self):
@@ -65,7 +66,6 @@ class CPU:
 
         for i in range(8):
             print(" %02X" % self.reg[i], end='')
-
         print()
 
     def run(self):
@@ -76,4 +76,13 @@ class CPU:
         for i in range(1, num_operands + 1):
             operands.append(self.ram_read(self.pc + i))
         if "{:b}".format(ir)[-4:] == "0010":
-            print(operands[1])
+            # print(operands[1])
+            self.registers[operands[0]] = operands[1]
+        elif "{:b}".format(ir)[-4:] == "0111":
+            print(self.registers[operands[0]])
+        elif "{:b}".format(ir)[-4:] == "0001":
+            return
+        else:
+            return
+        self.pc = self.pc + 1 + num_operands
+        self.run()
