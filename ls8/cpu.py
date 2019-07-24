@@ -8,9 +8,9 @@ class CPU:
 
     def __init__(self):
         """Construct a new CPU."""
-        self.ram = [0] * 256
+        self.ram = [0b0000000] * 256
         self.pc = 0
-        self.registers = {}
+        self.call_stack = []
         pass
 
     def load(self):
@@ -45,7 +45,7 @@ class CPU:
             self.reg[reg_a] += self.reg[reg_b]
         #elif op == "SUB": etc
         elif op == "MUL":
-            self.registers[reg_a] = self.registers[reg_a] * self.registers[reg_b]
+            self.ram[reg_a] = 0xFF&(self.ram[reg_a]*self.ram[reg_b])
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -77,11 +77,15 @@ class CPU:
             operands.append(int(self.ram_read(self.pc + i), 2))
         if ir[2] == "1":
             if ir[-4:] == "0010":
-                self.alu("MUL", operands[0], operands[1])
+                self.alu("MUL", 0xF0 + operands[0], 0xF0 + operands[1])
         elif ir[-4:] == "0010":
-            self.registers[operands[0]] = operands[1]
+            self.ram[0xF0 + operands[0]] = operands[1]
         elif ir[-4:] == "0111":
-            print(self.registers[operands[0]])
+            print(self.ram[0xF0 + operands[0]])
+        elif ir[-4:] == "0101":
+            self.call_stack.append(self.ram[0xF0 + operands[0]])
+        elif ir[-4:] == "0110":
+            self.ram[0xF0 + operands[0]] = self.call_stack.pop()
         elif ir[-4:] == "0001":
             return
         else:
