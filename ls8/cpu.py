@@ -10,7 +10,7 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0b0000000] * 256
         self.pc = 0
-        self.call_stack = []
+        self.sp = 0xF4
         pass
 
     def load(self):
@@ -42,8 +42,7 @@ class CPU:
         """ALU operations."""
 
         if op == "ADD":
-            self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+            self.ram[reg_a] = 0xFF&(self.ram[reg_a]+self.ram[reg_b])
         elif op == "MUL":
             self.ram[reg_a] = 0xFF&(self.ram[reg_a]*self.ram[reg_b])
         else:
@@ -66,7 +65,6 @@ class CPU:
 
         for i in range(8):
             print(" %02X" % self.reg[i], end='')
-        print()
 
     def run(self):
         """Run the CPU."""
@@ -75,19 +73,32 @@ class CPU:
         operands = []
         for i in range(1, num_operands + 1):
             operands.append(int(self.ram_read(self.pc + i), 2))
-        if ir[2] == "1":
+        if ir[3] == "1":
+            if ir[-4:] == "0000":
+                self.sp -= 1
+                self.ram[self.sp] = self.pc + 1 + num_operands
+                self.pc = self.ram[0xF0 + operands[0]]
+            if ir[-4:] == "0001":
+                self.pc = self.ram[self.sp]
+                self.sp += 1
+            return self.run() 
+        elif ir[2] == "1":
             if ir[-4:] == "0010":
                 self.alu("MUL", 0xF0 + operands[0], 0xF0 + operands[1])
+            elif ir[-4:] == "0000":
+                self.alu("ADD", 0xF0 + operands[0], 0xF0 + operands[1])
         elif ir[-4:] == "0010":
             self.ram[0xF0 + operands[0]] = operands[1]
         elif ir[-4:] == "0111":
             print(self.ram[0xF0 + operands[0]])
         elif ir[-4:] == "0101":
-            self.call_stack.append(self.ram[0xF0 + operands[0]])
+            self.sp -= 1
+            self.ram[self.sp] = self.ram[0xF0 + operands[0]]
         elif ir[-4:] == "0110":
-            self.ram[0xF0 + operands[0]] = self.call_stack.pop()
+            self.ram[0xF0 + operands[0]] = self.ram[self.sp]
+            self.sp += 1
         elif ir[-4:] == "0001":
-            return
+            return None
         else:
             return
         self.pc = self.pc + 1 + num_operands
