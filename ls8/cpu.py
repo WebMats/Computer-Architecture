@@ -8,9 +8,10 @@ class CPU:
 
     def __init__(self):
         """Construct a new CPU."""
-        self.ram = [0b0000000] * 256
+        self.ram = [0b00000000] * 256
         self.pc = 0
         self.sp = 0xF4
+        self.fl = 0b00000000
         pass
 
     def load(self):
@@ -45,6 +46,25 @@ class CPU:
             self.ram[reg_a] = 0xFF&(self.ram[reg_a]+self.ram[reg_b])
         elif op == "MUL":
             self.ram[reg_a] = 0xFF&(self.ram[reg_a]*self.ram[reg_b])
+        elif op == "CMP":
+            if self.ram[reg_a] == self.ram[reg_b]:
+                self.fl = 0b00000001
+            elif self.ram[reg_a] < self.ram[reg_b]:
+                self.fl = 0b00000100
+            else:
+                self.fl = 0b00000010
+        elif op == "AND":
+            self.ram[reg_a] = self.ram[reg_a]&self.ram[reg_b]
+        elif op == "OR":
+            self.ram[reg_a] = self.ram[reg_a]|self.ram[reg_b]
+        elif op == "XOR":
+            self.ram[reg_a] = self.ram[reg_a]^self.ram[reg_b]
+        elif op == "NOT":
+            self.ram[reg_a] = 0b11111111^self.ram[reg_a]
+        elif op == "SHL":
+            self.ram[reg_a] = self.ram[reg_a]<<self.ram[reg_b]
+        elif op == "SHR":
+            self.ram[reg_a] = self.ram[reg_a]>>self.ram[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -73,7 +93,7 @@ class CPU:
         operands = []
         for i in range(1, num_operands + 1):
             operands.append(int(self.ram_read(self.pc + i), 2))
-        if ir[3] == "1":
+        if ir[3] == "1" and ir[-4:] != "0101" and ir[-4:] != "0110" and ir[-4:] != "0100":
             if ir[-4:] == "0000":
                 self.sp -= 1
                 self.ram[self.sp] = self.pc + 1 + num_operands
@@ -82,11 +102,37 @@ class CPU:
                 self.pc = self.ram[self.sp]
                 self.sp += 1
             return self.run() 
+        elif ir[3] == "1":
+            if ir[-4:] == "0101":
+                if self.fl == 0b00000001:
+                    self.pc = self.ram[0xF0 + operands[0]]
+                    return self.run()
+            if ir[-4:] == "0110":
+                if self.fl % 2 == 0:
+                    self.pc = self.ram[0xF0 + operands[0]]
+                    return self.run()
+            if ir[-4:] == "0100":
+                self.pc = self.ram[0xF0 + operands[0]]
+                return self.run()
         elif ir[2] == "1":
             if ir[-4:] == "0010":
                 self.alu("MUL", 0xF0 + operands[0], 0xF0 + operands[1])
             elif ir[-4:] == "0000":
                 self.alu("ADD", 0xF0 + operands[0], 0xF0 + operands[1])
+            elif ir[-4:] == "0111":
+                self.alu("CMP", 0xF0 + operands[0], 0xF0 + operands[1])
+            elif ir[-4:] == "1000":
+                self.alu("AND", 0xF0 + operands[0], 0xF0 + operands[1])
+            elif ir[-4:] == "1010":
+                self.alu("OR", 0xF0 + operands[0], 0xF0 + operands[1])
+            elif ir[-4:] == "1011":
+                self.alu("XOR", 0xF0 + operands[0], 0xF0 + operands[1])
+            elif ir[-4:] == "1001":
+                self.alu("NOT", 0xF0 + operands[0], None)
+            elif ir[-4:] == "1100":
+                self.alu("SHL", 0xF0 + operands[0], 0xF0 + operands[1])
+            elif ir[-4:] == "1101":
+                self.alu("SHR", 0xF0 + operands[0], 0xF0 + operands[1])
         elif ir[-4:] == "0010":
             self.ram[0xF0 + operands[0]] = operands[1]
         elif ir[-4:] == "0111":
